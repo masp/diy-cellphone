@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <GSM.h>
 #include <GSM3ShieldV1VoiceProvider.h>
-#include <GSM3Serial1.h>
 
 #include <PhoneBook.h>
 #include <GSM3ClockService.h>
@@ -105,6 +104,14 @@ menuentry_t mainmenu[] = {
   { "Set date+time", SETTIME, 0 },
   { "Set alarm", SETALARM, 0 },
 };
+
+void callPhoneBookEntry();
+void initTextFromPhoneBookEntry();
+void initEditEntry();
+void initEditEntryFromPhoneBookEntry();
+void deletePhoneBookEntry();
+void deleteCallLogEntry();
+void initEditEntryFromCallLogEntry();
 
 menuentry_t phoneBookEntryMenu[] = {
   { "Call", PHONEBOOK, callPhoneBookEntry },
@@ -205,14 +212,10 @@ void setup() {
   pinMode(4, OUTPUT);
   
   screen.begin();
-  screen.flip();
-  screen.clear();
-  screen.setCursor(0);
   
   delay(2000);
   
   screen.print("connect");
-  screen.display();
   
   delay(2000);
   
@@ -227,23 +230,21 @@ void setup() {
   while (gsmAccess.begin(0, false) != GSM_READY) {
     delay(1000);
   }
-  screen.setCursor(0);
+
+  screen.clear();
   screen.print("connected.");
-  screen.display();
   
   vcs.hangCall();
   
   delay(300);
   
-  screen.setCursor(0);
+  screen.clear();
   screen.print("caching.");
-  screen.display();
   
   cachePhoneBook();
   
-  screen.setCursor(0);
+  screen.clear();
   screen.print("done.");
-  screen.display();
 }
 
 void loop() {
@@ -255,9 +256,7 @@ void loop() {
   if (vcs.getvoiceCallStatus() != RECEIVINGCALL && (vcs.getvoiceCallStatus() != IDLE_CALL || mode != ALARMALERT)) noTone(4);
   
   char key = keypad.getKey();
-  //screen.clear();
-  screen.setCursor(0);
-  screen.hideCursor();
+  screen.clear();
   terminateScreen = true;
   
   if (millis() - lastClockCheckTime > 60000) {
@@ -813,12 +812,10 @@ void loop() {
   }
   
   if (scrolling && millis() - lastScrollTime > scrollSpeed) {
-    screen.scroll();
     lastScrollTime = millis();
   }
   
-  if (terminateScreen) screen.terminate();
-  screen.display(); // blank the rest of the line
+  if (terminateScreen) screen.clear();
   prevVoiceCallStatus = voiceCallStatus;
 }
 
@@ -1073,14 +1070,13 @@ int loadphoneBookNamesBackwards(int endingIndex, int n)
 void numberInput(char key, char *buf, int len)
 {
   scrolling = false;
-  screen.showCursor();
   
   int i = strlen(buf);
   
   if (i > 0 && (buf[i - 1] == '*' || buf[i - 1] == '#' || buf[i - 1] == '+') && millis() - lastKeyPressTime <= 1000) {
     for (int i = (strlen(buf) < 8) ? 0 : (strlen(buf) - 8); i < strlen(buf); i++) screen.print(buf[i]);
     terminateScreen = false;
-    screen.terminate();
+    screen.clear();
     screen.setCursor(screen.getCursor() - 1);
   } else if (millis() - lastKeyPressTime < 5000) {
     screen.print((strlen(buf) < 7) ? buf : (buf + strlen(buf) - 7));
@@ -1112,7 +1108,6 @@ void numberInput(char key, char *buf, int len)
 void textInput(char key, char *buf, int len)
 {
   scrolling = false;
-  screen.showCursor();
   
   if (millis() - lastKeyPressTime > 5000) {
     scrolling = true;
@@ -1122,7 +1117,7 @@ void textInput(char key, char *buf, int len)
   } else {
     for (int i = (strlen(buf) < 8) ? 0 : (strlen(buf) - 8); i < strlen(buf); i++) screen.print(buf[i]);
     terminateScreen = false;
-    screen.terminate();
+    screen.clear();
     screen.setCursor(screen.getCursor() - 1);
   }
   

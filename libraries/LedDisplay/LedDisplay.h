@@ -54,8 +54,6 @@
 
 // library interface description
 
-#define LED_DISPLAY_BUFLEN 160
-
 class LedDisplay : public Print {
   public:
     // constructor:
@@ -74,15 +72,7 @@ class LedDisplay : public Print {
 	void home();						// set cursor to far left hand position
 	void setCursor(int whichPosition);	// set cursor to any position
 	int  getCursor();					// get the cursor position
-	
-	void showCursor() { cursorVisible = true; }
-	void hideCursor() { cursorVisible = false; }
-	
-	void scroll();
-	
-	void flip() { flipped = true; }
-	void noFlip() { flipped = false; }
-	
+
 #if ARDUINO >= 100
 	virtual size_t write(uint8_t b);	// write a character to the display and advance cursor
 #else
@@ -90,13 +80,12 @@ class LedDisplay : public Print {
 #endif
 	using Print::write;
 	
-	void display();
-	void terminate();
-	
-//	void setString(char* _stringToDisplay);		// set the displayString variable
-//	char* getString();							// get the displayString
-//	int stringLength();							// get the length of displayString
+	void setString(char* _stringToDisplay);		// set the displayString variable
+	char* getString();							// get the displayString
+	int stringLength();							// get the length of displayString
 
+	void scroll(int direction);			// scroll whatever string is stored in library's displayString variable
+	
 	void setBrightness(uint8_t bright);			// set display brightness, 0 - 15
 
 	// Control register setters. for addressing the display directly:
@@ -107,16 +96,13 @@ class LedDisplay : public Print {
 	  
   private:
   	// Character display setters:
-	void writeCharacter(char whatCharacter, byte whatPosition, uint8_t underlined = false);	// write a character to a buffer which will
+	void writeCharacter(char whatCharacter, byte whatPosition);	// write a character to a buffer which will
 																// be sent to the display by loadDotRegister()
-	uint8_t flipped;
-	uint8_t cursorVisible;
-  	int cursorPos; // location within displayString to which write() stores the next character
-	int scrollPos; // location within displayString of the left-most character drawn to the display
-	int scrollDir;
-   	uint8_t dotRegister[40];    // the 320-bit dot register for a single 8 digit LED display
+
+  	int cursorPos;				// position of the cursor		
+//   	uint8_t dotRegister[40];    // the 320-bit dot register for a single 8 digit LED display
 // 	uint8_t dotRegister[80];    // the pair of 320-bit dot register for two 8 character LED displays
-//   	uint8_t dotRegister[160];    // four 320-bit dot registers. 320 for each 8 character LED display
+   	uint8_t dotRegister[160];    // four 320-bit dot registers. 320 for each 8 character LED display 
 
 	// Define pins for the LED display:
 	uint8_t  dataPin;         	// connects to the display's data in
@@ -125,7 +111,7 @@ class LedDisplay : public Print {
 	uint8_t chipEnable;       	// the display's chip enable pin
 	uint8_t resetPin;         	// the display's reset pin
 	uint8_t displayLength;    	// number of bytes needed to pad the string
-	char displayString[LED_DISPLAY_BUFLEN];		// string for scrolling
+	char* displayString;		// string for scrolling
 };
 
 #endif

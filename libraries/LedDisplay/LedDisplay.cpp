@@ -51,12 +51,15 @@ LedDisplay::LedDisplay(uint8_t _dataPin,
 	this->resetPin = _resetPin;         		// the display's reset pin
 	this->displayLength = _displayLength;    	// number of bytes needed to pad the string
 	this->cursorPos = 0;						// position of the cursor in the display
-	this->scrollPos = 0;
-	this->scrollDir = 1;
-	this->flipped = false;
-	this->cursorVisible = false;
+	char stringBuffer[displayLength+1];			// default array that the displayString will point to
 	
-	displayString[0] = '\0';
+	// fill stringBuffer with spaces, and a trailing 0:
+	for (int i = 0; i < displayLength; i++) {
+		stringBuffer[i] = ' ';
+	}
+	stringBuffer[displayLength] = '\0';
+	
+	this->setString(stringBuffer);				// give displayString a default buffer
 }
 
 /*
@@ -146,82 +149,82 @@ size_t LedDisplay::write(uint8_t b) {
 #else
 void LedDisplay::write(uint8_t b) {
 #endif
-	if (cursorPos < LED_DISPLAY_BUFLEN - 1) {
-		if (b != displayString[cursorPos]) {
-			scrollPos = 0; // reset the scroll when new data written
-			scrollDir = 0;
-		}
-		if (displayString[cursorPos] == 0) displayString[cursorPos + 1] = 0;
-		displayString[cursorPos] = b;
-		cursorPos++;
+	// make sure cursorPos is on the display:
+	if (cursorPos >= 0 && cursorPos < displayLength) {	
+		// put the character into the dot register:
+		writeCharacter(b, cursorPos);
+		// put the character into the displayString:
+		if (cursorPos < this->stringLength()) {
+			this->displayString[cursorPos] = b;
+		}		
+		cursorPos++;	
+		// send the dot register array out to the display:
+		loadDotRegister();
 	}
 #if ARDUINO >= 100
 	return 1;
 #endif
 }
 
-void LedDisplay::terminate() {
-	if (displayString[cursorPos] != 0) {
-		scrollPos = 0; // reset the scroll when new data written
-		scrollDir = 0;
+
+/*
+ * 	Scroll the displayString across the display.  left = -1, right = +1
+ */
+
+
+void LedDisplay::scroll(int direction) {
+	clear();
+	cursorPos += direction;
+	// Loop over the string and take displayLength characters to write to the display:
+   	for (int displayPos = 0; displayPos < displayLength; displayPos++) {
+	  // which character in the strings you want:
+	  int whichCharacter =  displayPos - cursorPos;
+	  //  length of the string to display:
+	  int stringEnd = strlen(displayString);
+	 // which character you want to show from the string:
+	  char charToShow; 
+	  // display the characters until you have no more:
+	  if ((whichCharacter >= 0) && (whichCharacter < stringEnd)) {
+		charToShow = displayString[whichCharacter]; 
+	  } 
+	  // if none of the above, show a space:
+	  else {
+		charToShow = ' ';
+	  }
+	  // put the character in the dot register:
+	  writeCharacter(charToShow, displayPos);  
 	}
-	displayString[cursorPos] = 0; // XXX: should this be a separate function?
-}
-	
-void LedDisplay::display() {
-	for (int i = 0; i < 8; i++) {
-		boolean underline = cursorVisible && ((i == 0 && cursorPos == 0) || scrollPos + i == cursorPos);
-		if (scrollPos + i < strlen(displayString)) writeCharacter(displayString[scrollPos + i], i, underline);
-		else writeCharacter(' ', i, underline);
-	}
-	
+	// send the dot register array out to the display:
 	loadDotRegister();
 }
-	
-void LedDisplay::scroll() {
-	int len = strlen(displayString);
-	if (cursorVisible && cursorPos + 1 > len) len = cursorPos + 1;
-	if (len > 8) {
-		scrollPos += scrollDir;
-	  
-		if (scrollPos == len - 8) {
-			if (scrollDir == 1) scrollDir = 0;
-			else scrollDir = -1;
-		}
-		if (scrollPos == 0) {
-			if (scrollDir == -1) scrollDir = 0;
-			else scrollDir = 1;
-		}
-	}
+
+
+/*
+ * 	set displayString
+ */
+
+void LedDisplay::setString(char* _displayString)  {
+	this->displayString = _displayString;
 }
 
 
-///*
-// * 	set displayString
-// */
-//
-//void LedDisplay::setString(char* _displayString)  {
-//	this->displayString = _displayString;
-//}
-//
-//
-///*
-// * 	return displayString
-// */
-//
-//char* LedDisplay::getString() {
-//	return displayString;
-//}
-//
-//
-///*
-// * 	return displayString length
-// */
-//
-//	
-//int LedDisplay::stringLength() {
-//	return strlen(displayString);
-//}	
+/*
+ * 	return displayString
+ */
+
+char* LedDisplay::getString() {
+	return displayString;
+}
+
+
+/*
+ * 	return displayString length
+ */
+
+	
+int LedDisplay::stringLength() {
+	return strlen(displayString);
+}	
 	
 	
 
@@ -242,14 +245,14 @@ void LedDisplay::setBrightness(uint8_t bright)
  * it just prepares the data:
 */
 
-void LedDisplay::writeCharacter(char whatCharacter, byte whatPosition, uint8_t underlined) {
+void LedDisplay::writeCharacter(char whatCharacter, byte whatPosition) {
   // calculate the starting position in the array.
   // every character has 5 columns made of 8 bits:
   byte thisPosition =  whatPosition * 5;
 
   // copy the appropriate bits into the dot register array:
   for (int i = 0; i < 5; i++) {
-    dotRegister[thisPosition+i] = (pgm_read_byte(&Font5x7[((whatCharacter - 0x11) * 5) + i])) | (underlined ? 0x40 : 0);
+    dotRegister[thisPosition+i] = (pgm_read_byte(&Font5x7[((whatCharacter - 0x20) * 5) + i]));
   }
 }
 
@@ -278,7 +281,7 @@ void LedDisplay::loadDotRegister() {
   digitalWrite(chipEnable, LOW);
   // shift the data out:
   for (int i = 0; i < maxData; i++) {
-    shiftOut(dataPin, clockPin, flipped ? LSBFIRST : MSBFIRST, dotRegister[flipped ? (maxData - 1 - i) : i] << (flipped ? 1 : 0));
+    shiftOut(dataPin, clockPin, MSBFIRST, dotRegister[i]);
   }
   // disable writing:
   digitalWrite(chipEnable, HIGH);

@@ -27,9 +27,9 @@ const int WRITEPHONEBOOK = 101;
 const int QUERYPHONEBOOK = 102;
 const int SELECTPHONEBOOK = 103;
 
-PROGMEM prog_char _command_CPBR[]={"AT+CPBR="};
-PROGMEM prog_char _command_CPBW[]={"AT+CPBW="};
-PROGMEM prog_char _command_CPBS[]={"AT+CPBS"};
+PROGMEM const char _command_CPBR[]={"AT+CPBR="};
+PROGMEM const char _command_CPBW[]={"AT+CPBW="};
+PROGMEM const char _command_CPBS[]={"AT+CPBS"};
 
 char *_phoneBookTypes[] = { "SM", "MC", "RC", "DC", "AC", "ON", "ME" };
 
